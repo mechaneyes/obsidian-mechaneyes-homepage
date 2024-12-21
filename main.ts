@@ -1,89 +1,141 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import {
+	App,
+	Plugin,
+	TFile,
+	WorkspaceLeaf,
+	ItemView,
+	Notice,
+	PluginSettingTab,
+	Setting,
+} from "obsidian";
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
+interface HomepageSettings {
+	numberOfRecentFiles: number;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+const DEFAULT_SETTINGS: HomepageSettings = {
+	numberOfRecentFiles: 10,
+};
+
+const VIEW_TYPE_HOMEPAGE = "homepage-view";
+
+class HomepageView extends ItemView {
+	constructor(leaf: WorkspaceLeaf) {
+		super(leaf);
+	}
+
+	getViewType(): string {
+		return VIEW_TYPE_HOMEPAGE;
+	}
+
+	getDisplayText(): string {
+		return "Mechaneyes Homepage";
+	}
+
+	async onOpen() {
+		const container = this.containerEl.children[1];
+		container.empty();
+
+		const recentFiles = await this.getRecentFiles();
+
+		container.createEl("h2", { text: "this is wuts up" });
+
+		const tableContainer = container.createEl("div", { cls: "homepage-table" });
+		const table = tableContainer.createEl("table");
+		const tbody = table.createEl("tbody");
+
+		// Create rows with filename in col 1, date in col 2
+		for (let i = 0; i < recentFiles.length; i++) {
+			const row = tbody.createEl("tr");
+			
+			// First column - filename
+			const cell1 = row.createEl("td");
+			const link = cell1.createEl("a", {
+				text: recentFiles[i].basename,
+				href: recentFiles[i].path,
+			});
+			link.addEventListener("click", (event) => {
+				event.preventDefault();
+				this.app.workspace.openLinkText(recentFiles[i].path, "");
+			});
+
+			// Second column - date
+			const cell2 = row.createEl("td");
+			cell2.createEl("span", {
+				text: new Date(recentFiles[i].stat.mtime).toLocaleString('en-US', {
+					year: 'numeric',
+					month: '2-digit',
+					day: '2-digit',
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+					hour12: false,
+					timeZoneName: 'shortOffset'
+				}).replace(/(\d+)\/(\d+)\/(\d+), (\d+:\d+:\d+) (GMT[+-]\d+)/, 
+					(_, month, day, year, time, timezone) => 
+					`${year}.${month}.${day} - ${time} — ${new Date(recentFiles[i].stat.mtime).toLocaleString('en-US', {weekday: 'long'})}`),
+				cls: "nav-file-title-content",
+			});
+		}
+	}
+
+	async getRecentFiles(): Promise<TFile[]> {
+		const files = this.app.vault.getFiles();
+
+		// Sort by last modified time, most recent first
+		return files
+			.sort((a, b) => b.stat.mtime - a.stat.mtime)
+			.slice(
+				0,
+				(this.app as any).plugins.plugins["mechaneyes-homepage"]
+					.settings.numberOfRecentFiles
+			);
+	}
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class HomepagePlugin extends Plugin {
+	settings: HomepageSettings;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		// Register view
+		this.registerView(VIEW_TYPE_HOMEPAGE, (leaf) => new HomepageView(leaf));
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+		// Add the home command
+		this.addCommand({
+			id: "open-homepage",
+			name: "Open Homepage",
+			callback: async () => {
+				const { workspace } = this.app;
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+				// Check if view is already open
+				let leaf = workspace.getLeavesOfType(VIEW_TYPE_HOMEPAGE)[0];
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+				if (!leaf) {
+					// Create new leaf and view
+					leaf = workspace.getLeaf("tab");
+					await leaf.setViewState({
+						type: VIEW_TYPE_HOMEPAGE,
+						active: true,
+					});
 				}
-			}
+
+				// Reveal the leaf in the workspace
+				workspace.revealLeaf(leaf);
+			},
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
-
-	onunload() {
-
+		// Add settings tab
+		this.addSettingTab(new HomepageSettingTab(this.app, this));
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
 	}
 
 	async saveSettings() {
@@ -91,44 +143,34 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+class HomepageSettingTab extends PluginSettingTab {
+	plugin: HomepagePlugin;
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: HomepagePlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		const {containerEl} = this;
-
+		const { containerEl } = this;
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+			.setName("Number of recent files")
+			.setDesc("How many recently modified files to show")
+			.addText((text) =>
+				text
+					.setPlaceholder("10")
+					.setValue(
+						this.plugin.settings.numberOfRecentFiles.toString()
+					)
+					.onChange(async (value) => {
+						const numValue = parseInt(value);
+						if (!isNaN(numValue)) {
+							this.plugin.settings.numberOfRecentFiles = numValue;
+							await this.plugin.saveSettings();
+						}
+					})
+			);
 	}
 }

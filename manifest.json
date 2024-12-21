@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "mechaneyes-homepage",
+	"name": "Mechaneyes Homepage",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Adds a homepage to Obsidian with a list of recently modified notes.",
+	"author": "Mechaneyes",
+	"authorUrl": "https://mechaneyes.com/",
+	"fundingUrl": "https://www.firstnations.org/ways-to-give/",
 	"isDesktopOnly": false
 }
