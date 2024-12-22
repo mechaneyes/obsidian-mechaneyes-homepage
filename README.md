@@ -7,7 +7,7 @@ Adds a homepage to Obsidian with a list of recently modified notes.
 It's just that atm, but will evolve over time.
 
 
-
+![screenshot](./obsidian-mechaneyes-homepage.png)
 
 
 

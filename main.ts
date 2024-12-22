@@ -38,7 +38,7 @@ class HomepageView extends ItemView {
 
 		const recentFiles = await this.getRecentFiles();
 
-		container.createEl("h2", { text: "this is wuts up" });
+		container.createEl("h2", { text: "this wuts up" });
 
 		const tableContainer = container.createEl("div", { cls: "homepage-table" });
 		const table = tableContainer.createEl("table");
